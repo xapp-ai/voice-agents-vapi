@@ -1,0 +1,40 @@
+{
+  "name": "voice-agents",
+  "version": "1.0.0",
+  "description": "Voice agents project built with TypeScript and Node.js",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean"
+  },
+  "keywords": [
+    "typescript",
+    "nodejs",
+    "voice",
+    "agents"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "5.0.3",
+    "@types/node": "^20.0.0",
+    "@types/pg": "8.15.4",
+    "nodemon": "^3.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "addresser": "1.1.20",
+    "axios": "1.10.0",
+    "dotenv": "16.5.0",
+    "express": "5.1.0",
+    "moment-timezone": "0.6.0",
+    "openai": "5.5.1",
+    "pg": "8.16.0",
+    "twilio": "5.7.1"
+  }
+}
