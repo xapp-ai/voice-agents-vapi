@@ -28,6 +28,9 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.13.1",
+    "@xapp/stentor-service-jobber": "1.65.40",
+    "@xapp/stentor-service-servicetitan": "1.65.40",
     "addresser": "1.1.20",
     "axios": "1.10.0",
     "dotenv": "16.5.0",
@@ -35,6 +38,8 @@
     "moment-timezone": "0.6.0",
     "openai": "5.5.1",
     "pg": "8.16.0",
+    "stentor-logger": "1.60.43",
+    "stentor-models": "1.60.38",
     "twilio": "5.7.1"
   }
 }

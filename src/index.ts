@@ -4,12 +4,16 @@ import { Client } from "pg";
 import moment from "moment";
 import { getKnowledge } from "./services/knowledge";
 import { AFTER_HOURS_SYSTEM_PROMPT } from "./prompts";
-import { PhoneNumberConfig } from "./models";
+import { PhoneNumberConfig, externalLead, OutboundCall, OutboundCallWorkflowOverrides } from "./models";
 import { getFormattedAddress, normalizeAddress } from "./services/address";
 import { availabilitySettings } from "./services/availability";
+import { FsmService } from "./services/fsm/servicetitan";
+
 
 const app = express();
 app.use(express.json());
+
+// Constants
 const DEFAULT_WELCOME_MESSAGE =
   "Hello, I'm an AI assistant. How can I help you today?";
 const SAVE_CALLS_WEBHOOK = "https://hooks.zapier.com/hooks/catch/12115949/2qtulsb/";
@@ -17,46 +21,6 @@ const TOOLS = ["d6bea374-620b-4c6a-a554-af21029c1a4c"];
 const PRODUCTION_URL = "https://vapi-petehaas1.replit.app/";
 const VAPI_BASE_URL = "https://api.vapi.ai/";
 
-// Convert the collected information into a XAPP Lead
-const externalLead = (args: any, transcript: any) => {
-    return {
-      transcript,
-      fields: [
-        {
-          name: "FULL_NAME",
-          value: `${args?.customer_name}`,
-        },
-        {
-          name: "ADDRESS",
-          value: `${args?.customer_address}`,
-        },
-        {
-          name: "PHONE",
-          value: `${args?.customer_phone}`,
-        },
-        {
-          name: "EMAIL",
-          value: `${args?.customer_email}`,
-        },
-        {
-          name: "MESSAGE",
-          value: `${args?.reason_for_appointment}`,
-        },
-        {
-          name: "DATETIME",
-          value: `${args?.appointment_date}`,
-        },
-        {
-          name: "PREFERRED_TIME",
-          value: "morning",
-        },
-        {
-          name: "CONSENT_APPROVAL",
-          value: true,
-        },
-      ],
-    };
-  };
 
 // Listening
 app.all("/", async (req: any, res: any) => {
@@ -350,7 +314,7 @@ app.all("/knowledge-base", async (req: any, res: any) => {
 
 app.post("/new-number", async (req: any, res: any) => {
   console.log(req.body);
-  const phone = await createPhoneNumber(req.body) as any;
+  const phone = await createPhoneNumber(req.body,req.body.outbound) as any;
 
   phone.formattedNumber = formatPhoneNumber(req.body.phone);
 
@@ -371,6 +335,79 @@ app.post("/save-number", async (req: any, res: any) => {
     console.log("error", err);
   }
   return res.json({ result: "error" });
+});
+
+app.post("/customer-lookup",async (req: any, res: any) => {
+  const dnis = req.body.message.customer.number;
+
+  console.log("dnis", dnis.replace("+1", ""));
+
+  const result = await FsmService.getCustomers({
+    phone: dnis.replace("+1", "")
+  });
+
+  if (result?.data?.data && result.data.data[0]) {
+    return res.json({ result: result?.data?.data[0] });
+  } else {
+    return res.json({ result: "No customer found" });
+  }
+  // return res.json({ result });
+});
+
+app.post("/outbound-call",async (req: any, res: any) => {
+
+  // const
+  const phoneNumberId = "f6d47299-590d-4598-839c-c4726b3e06f5";
+  const workflowId = "f776f672-3fb5-4566-a9bc-613319d7b429";
+ 
+  const callOverrides: OutboundCallWorkflowOverrides = {
+    customer_name: req.body.customer_name,
+    customer_address: req.body.customer_address,
+    customer_phone: req.body.customer_phone,
+    customer_email: req.body.customer_email,
+    service_requested: req.body.service_requested,
+    requested_date: req.body.requested_date,
+    preferred_time: req.body.preferred_time,
+  }
+
+  const outboundCall: OutboundCall = {
+    name: `Call ${req.body.customer_name}`,
+    customer: {
+      number: req.body.customer_phone,
+    },
+    phoneNumberId,
+    workflowId,
+    workflowOverrides: {
+      variableValues: callOverrides,
+    },
+    // voicemailDetection: {
+    //   provider: "vapi",
+    // },
+    // voicemailMessage: "Hey {{customer_name}}, this is Sarah from Acme Home Services trying to reach your about your request for {{service_requested}}. Please call us at 999-888-4343 to schedule your appointment.",
+    // backgroundSound: "off"
+  }
+
+  const response = await fetch(`${VAPI_BASE_URL}call/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.VAPI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(outboundCall),
+  });
+
+  const body = await response.json();
+
+  // console.log(body);
+
+  return res.json({ result: body });
+});
+
+app.post("/convert-lead-to-booking",async (req: any, res: any) => {
+  const lead = req.body;
+  console.log(lead);
+  //const booking = await createBooking(lead);
+  return res.json({ result: "done" });
 });
 
 const PORT = process.env.PORT || 3000;
@@ -412,7 +449,7 @@ function formatPhoneNumber(phoneNumber: string) {
   }
 }
 
-const createPhoneNumber = async (phoneRequest: any) => {
+const createPhoneNumber = async (phoneRequest: any,outbound:boolean = false) => {
   // Create Phone Number (POST /phone-number)
   const response = await fetch(`${VAPI_BASE_URL}phone-number`, {
     method: "POST",
@@ -426,7 +463,7 @@ const createPhoneNumber = async (phoneRequest: any) => {
       twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
       number: phoneRequest.phone,
       server: {
-        url: `${PRODUCTION_URL}route?appId=${phoneRequest.appId}`,
+        url: `${PRODUCTION_URL}route?appId=${phoneRequest.appId}&outbound=${outbound}`,
         timeoutSeconds: 10,
         secret: "",
         headers: {},

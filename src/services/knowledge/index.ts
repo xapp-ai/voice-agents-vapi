@@ -2,8 +2,6 @@ import axios from "axios";
 
 const baseUrl = "https://api.xapp.ai";
 
-
-
 export async function getKnowledge(query: string, token: string) {
   const config = {
     method: "get",
@@ -27,7 +25,3 @@ export async function getKnowledge(query: string, token: string) {
     return `I don't know`;
   }
 }
-
-// module.exports = {
-//   getKnowledge,
-// };
